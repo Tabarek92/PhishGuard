@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PhishGuard — Email Threat Detection</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+
+:root{
+  --bg0:#060a0f;
+  --bg1:#0a0e14;
+  --bg2:#0d1117;
+  --bg3:#161b22;
+  --bg4:#1c2128;
+  --cyan:#00d4ff;
+  --cyan2:#0099bb;
+  --cyan-glow:rgba(0,212,255,.12);
+  --txt:#e6edf3;
+  --txt2:#8b949e;
+  --txt3:#4d5566;
+  --border:#21262d;
+  --border2:#30363d;
+  --red:#ff4757;
+  --orange:#ff9f43;
+  --yellow:#ffd32a;
+  --green:#2ed573;
+  --purple:#a55eea;
+  --mono:'Cascadia Code','Fira Code','JetBrains Mono','Consolas',monospace
+}
+
+body{
+  background:var(--bg0);
+  color:var(--txt);
+  font-family:var(--mono);
+  height:100vh;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden
+}
+
+/* ── SCROLLBARS ─────────────────────────────────────────── */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+/* ── HEADER ─────────────────────────────────────────────── */
+.header{
+  background:var(--bg2);
+  border-bottom:1px solid var(--border);
+  padding:10px 18px;
+  display:flex;
+  align-items:center;
+  gap:14px;
+  flex-shrink:0;
+  position:relative
+}
+.header::after{
+  content:'';
+  position:absolute;
+  bottom:0;left:0;right:0;
+  height:1px;
+  background:linear-gradient(90deg,var(--cyan),transparent 60%)
+}
+
+.logo-wrap{display:flex;align-items:center;gap:10px}
+.logo-box{
+  width:34px;height:34px;
+  background:linear-gradient(135deg,var(--cyan),var(--cyan2));
+  border-radius:7px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:18px;
+  box-shadow:0 0 14px rgba(0,212,255,.3)
+}
+.logo-name{
+  font-size:17px;font-weight:800;
+  color:var(--cyan);
+  letter-spacing:3px;
+  text-transform:uppercase;
+  text-shadow:0 0 20px rgba(0,212,255,.4)
+}
+.logo-sub{font-size:10px;color:var(--txt3);letter-spacing:1.5px}
+
+.header-right{
+  margin-left:auto;display:flex;align-items:center;gap:16px
+}
+.status-pill{
+  display:flex;align-items:center;gap:6px;
+  font-size:11px;color:var(--txt2);
+  background:var(--bg3);
+  border:1px solid var(--border2);
+  border-radius:20px;
+  padding:4px 10px;
+  letter-spacing:.5px
+}
+.status-dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--green);
+  box-shadow:0 0 6px var(--green);
+  animation:blink 2.4s ease-in-out infinite
+}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+
+
+/* ── API KEY BAR ─────────────────────────────────────────── */
+.api-bar{
+  background:var(--bg1);
+  border-bottom:1px solid var(--border);
+  padding:7px 18px;
+  display:flex;align-items:center;gap:10px;
+  flex-shrink:0
+}
+.api-label{font-size:10px;color:var(--txt3);letter-spacing:1.5px;white-space:nowrap}
+.api-input{
+  flex:1;max-width:400px;
+  background:var(--bg4);
+  border:1px solid var(--border2);
+  border-radius:5px;
+  padding:5px 10px;
+  color:var(--txt);
+  font-family:var(--mono);
+  font-size:12px;
+  outline:none;
+  transition:border-color .15s,box-shadow .15s
+}
+.api-input:focus{border-color:var(--cyan);box-shadow:0 0 0 2px var(--cyan-glow)}
+.api-input::placeholder{color:var(--txt3)}
+.api-note{font-size:10px;color:var(--txt3);letter-spacing:.5px}
+
+/* ── LAYOUT ─────────────────────────────────────────────── */
+.layout{display:flex;flex:1;overflow:hidden}
+
+/* ── SIDEBAR ─────────────────────────────────────────────── */
+.sidebar{
+  width:272px;
+  background:var(--bg2);
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  overflow-y:auto;
+  flex-shrink:0
+}
+
+.sb-section{
+  padding:12px;
+  border-bottom:1px solid var(--border)
+}
+.sb-title{
+  font-size:9px;letter-spacing:2.5px;
+  color:var(--cyan);
+  text-transform:uppercase;
+  margin-bottom:10px;
+  display:flex;align-items:center;gap:6px
+}
+.sb-title::before{content:'//';color:var(--txt3)}
+
+/* sample email cards */
+.ecard{
+  background:var(--bg4);
+  border:1px solid var(--border);
+  border-radius:7px;
+  padding:9px 10px;
+  margin-bottom:7px;
+  cursor:pointer;
+  transition:all .13s ease;
+  position:relative;
+  overflow:hidden
+}
+.ecard::before{
+  content:'';
+  position:absolute;left:0;top:0;bottom:0;width:2px;
+  transition:background .13s
+}
+.ecard:hover{border-color:var(--cyan2);background:var(--bg3);transform:translateX(3px)}
+.ecard:hover::before{background:var(--cyan)}
+.ecard:last-child{margin-bottom:0}
+
+.ebadge{
+  display:inline-block;
+  padding:2px 7px;border-radius:3px;
+  font-size:8px;letter-spacing:1.5px;
+  text-transform:uppercase;font-weight:700;
+  margin-bottom:5px
+}
+.b-phish{background:rgba(255,71,87,.18);color:var(--red);border:1px solid rgba(255,71,87,.3)}
+.b-fraud{background:rgba(255,159,67,.18);color:var(--orange);border:1px solid rgba(255,159,67,.3)}
+.b-spam{background:rgba(255,211,42,.18);color:var(--yellow);border:1px solid rgba(255,211,42,.3)}
+.b-legit{background:rgba(46,213,115,.18);color:var(--green);border:1px solid rgba(46,213,115,.3)}
+.b-spear{background:rgba(165,94,234,.18);color:var(--purple);border:1px solid rgba(165,94,234,.3)}
+
+.ecard-title{font-size:11px;color:var(--txt);font-weight:600;margin-bottom:2px}
+.ecard-from{font-size:9px;color:var(--txt3)}
+
+/* red flags list */
+.rf-list{list-style:none}
+.rf-list li{
+  font-size:11px;color:var(--txt2);
+  padding:4px 0;
+  display:flex;gap:7px;align-items:flex-start;
+  line-height:1.45;
+  border-bottom:1px solid var(--border);
+}
+.rf-list li:last-child{border-bottom:none}
+.rf-list li::before{content:'⚠';color:var(--orange);flex-shrink:0;font-size:10px;margin-top:1px}
+
+/* ── CHAT AREA ────────────────────────────────────────────── */
+.chat{flex:1;display:flex;flex-direction:column;overflow:hidden;background:var(--bg0)}
+
+/* tabs */
+.tabs{
+  background:var(--bg2);
+  border-bottom:1px solid var(--border);
+  padding:0 18px;
+  display:flex;
+  flex-shrink:0
+}
+.tab{
+  background:none;border:none;
+  border-bottom:2px solid transparent;
+  color:var(--txt3);
+  font-family:var(--mono);font-size:12px;
+  letter-spacing:.5px;
+  padding:11px 18px;
+  cursor:pointer;
+  transition:all .13s
+}
+.tab:hover{color:var(--txt2)}
+.tab.on{color:var(--cyan);border-bottom-color:var(--cyan)}
+
+/* messages */
+.msgs{
+  flex:1;overflow-y:auto;
+  padding:20px 24px;
+  display:flex;flex-direction:column;gap:18px
+}
+
+/* welcome */
+.welcome{
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  flex:1;gap:14px;text-align:center;padding:40px;
+  color:var(--txt2)
+}
+.welcome-icon{font-size:52px;opacity:.5;filter:grayscale(.3)}
+.welcome h2{
+  font-size:18px;color:var(--cyan);
+  letter-spacing:3px;
+  text-shadow:0 0 20px rgba(0,212,255,.3)
+}
+.welcome p{font-size:12px;line-height:1.8;max-width:380px}
+.tips{display:flex;flex-direction:column;gap:7px;text-align:left;margin-top:4px}
+.tip{display:flex;gap:8px;align-items:flex-start;font-size:11px;color:var(--txt3)}
+.tip-arr{color:var(--cyan);flex-shrink:0}
+
+/* message rows */
+.msg{display:flex;gap:11px;align-items:flex-start;max-width:860px}
+.msg.u{align-self:flex-end;flex-direction:row-reverse}
+
+.av{
+  width:30px;height:30px;border-radius:6px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:15px;flex-shrink:0
+}
+.msg.u .av{background:rgba(0,212,255,.15);border:1px solid var(--cyan2);color:var(--cyan)}
+.msg.a .av{background:rgba(165,94,234,.15);border:1px solid rgba(165,94,234,.4);color:var(--purple)}
+
+.mc{flex:1}
+.msg.u .mc{display:flex;flex-direction:column;align-items:flex-end}
+
+.mlabel{font-size:9px;color:var(--txt3);letter-spacing:1.5px;margin-bottom:5px}
+
+.bubble{
+  background:var(--bg3);
+  border:1px solid var(--border2);
+  border-radius:8px;
+  padding:13px 15px;
+  font-size:13px;line-height:1.75;
+  color:var(--txt);
+  word-break:break-word
+}
+.msg.u .bubble{
+  background:rgba(0,212,255,.07);
+  border-color:rgba(0,212,255,.2)
+}
+
+/* verdict banner */
+.vbanner{
+  border-radius:7px;padding:12px 14px;
+  margin-bottom:13px;
+  display:flex;align-items:center;gap:12px;
+  font-weight:700
+}
+.v-PHISHING{background:rgba(255,71,87,.12);border:1px solid rgba(255,71,87,.35);color:var(--red)}
+.v-FRAUD{background:rgba(255,159,67,.12);border:1px solid rgba(255,159,67,.35);color:var(--orange)}
+.v-SPAM{background:rgba(255,211,42,.12);border:1px solid rgba(255,211,42,.35);color:var(--yellow)}
+.v-SUSPICIOUS{background:rgba(255,159,67,.1);border:1px solid rgba(255,159,67,.3);color:var(--orange)}
+.v-LEGITIMATE{background:rgba(46,213,115,.1);border:1px solid rgba(46,213,115,.3);color:var(--green)}
+
+.v-icon{font-size:22px;flex-shrink:0}
+.v-info{flex:1}
+.v-type{font-size:10px;letter-spacing:2px;opacity:.75;margin-bottom:2px}
+.v-title{font-size:15px}
+
+/* score bar */
+.score-wrap{margin-bottom:13px}
+.score-header{
+  display:flex;justify-content:space-between;
+  font-size:10px;color:var(--txt3);
+  letter-spacing:1.5px;margin-bottom:6px
+}
+.score-num{font-weight:700;font-size:12px;color:var(--txt2)}
+.score-bar{height:7px;background:var(--bg0);border-radius:4px;overflow:hidden;border:1px solid var(--border)}
+.score-fill{height:100%;border-radius:4px;transition:width .7s cubic-bezier(.16,1,.3,1)}
+.s-safe{background:linear-gradient(90deg,#2ed573,#a8e063)}
+.s-low{background:linear-gradient(90deg,#a8e063,#ffd32a)}
+.s-med{background:linear-gradient(90deg,#ffd32a,#ff9f43)}
+.s-high{background:linear-gradient(90deg,#ff9f43,#ff4757)}
+.s-crit{background:linear-gradient(90deg,#ff4757,#c0392b);box-shadow:0 0 8px rgba(255,71,87,.45)}
+
+/* analysis text formatting */
+.atxt{font-size:13px;line-height:1.8;color:var(--txt)}
+.atxt .sec-hdr{
+  color:var(--cyan);font-size:11px;
+  font-weight:700;
+  letter-spacing:2.5px;
+  text-transform:uppercase;
+  margin:18px 0 8px;
+  padding:6px 10px;
+  background:rgba(0,212,255,.06);
+  border-left:3px solid var(--cyan);
+  border-radius:0 4px 4px 0;
+  display:block
+}
+.atxt .bullet{
+  display:flex;gap:8px;margin:5px 0;
+  padding-left:4px
+}
+.atxt .bullet-bar{
+  width:2px;background:var(--cyan2);
+  border-radius:1px;flex-shrink:0;margin-top:2px
+}
+.atxt .evidence{
+  display:inline;
+  background:rgba(255,71,87,.1);
+  border-left:2px solid rgba(255,71,87,.5);
+  padding:1px 6px;
+  color:#ff8a8a;
+  font-style:italic;
+  border-radius:0 3px 3px 0
+}
+.atxt strong{color:var(--cyan)}
+
+/* typing */
+.typing{display:flex;gap:11px;align-items:center}
+.typing-av{
+  width:30px;height:30px;border-radius:6px;
+  background:rgba(165,94,234,.15);
+  border:1px solid rgba(165,94,234,.4);
+  display:flex;align-items:center;justify-content:center;
+  font-size:15px;flex-shrink:0
+}
+.dots{
+  display:flex;gap:5px;
+  padding:13px 16px;
+  background:var(--bg3);
+  border:1px solid var(--border2);
+  border-radius:8px
+}
+.dot{
+  width:6px;height:6px;border-radius:50%;
+  background:var(--cyan);
+  animation:tdot 1.4s ease-in-out infinite
+}
+.dot:nth-child(2){animation-delay:.22s}
+.dot:nth-child(3){animation-delay:.44s}
+@keyframes tdot{0%,60%,100%{opacity:.2;transform:scale(.75)}30%{opacity:1;transform:scale(1.15)}}
+
+/* input area */
+.input-area{
+  background:var(--bg2);
+  border-top:1px solid var(--border);
+  padding:14px 18px;
+  flex-shrink:0
+}
+.panel{display:none}
+.panel.on{display:block}
+
+.etextarea{
+  width:100%;
+  background:var(--bg4);
+  border:1px solid var(--border2);
+  border-radius:6px;
+  padding:11px 13px;
+  color:var(--txt);
+  font-family:var(--mono);font-size:12px;
+  line-height:1.6;resize:vertical;
+  min-height:110px;max-height:190px;
+  outline:none;
+  transition:border-color .15s,box-shadow .15s;
+  display:block;margin-bottom:9px
+}
+.etextarea:focus{border-color:var(--cyan2);box-shadow:0 0 0 2px var(--cyan-glow)}
+.etextarea::placeholder{color:var(--txt3)}
+
+.q-row{display:flex;gap:9px}
+.qinput{
+  flex:1;
+  background:var(--bg4);
+  border:1px solid var(--border2);
+  border-radius:6px;
+  padding:11px 13px;
+  color:var(--txt);
+  font-family:var(--mono);font-size:13px;
+  outline:none;
+  transition:border-color .15s,box-shadow .15s
+}
+.qinput:focus{border-color:var(--cyan2);box-shadow:0 0 0 2px var(--cyan-glow)}
+.qinput::placeholder{color:var(--txt3)}
+
+.btn-row{display:flex;justify-content:flex-end}
+.sbtn{
+  background:var(--cyan);
+  color:var(--bg0);
+  border:none;border-radius:6px;
+  padding:10px 18px;
+  font-family:var(--mono);font-size:11px;font-weight:800;
+  letter-spacing:1.5px;cursor:pointer;
+  transition:all .15s;white-space:nowrap
+}
+.sbtn:hover{background:#33ddff;box-shadow:0 0 16px rgba(0,212,255,.45)}
+.sbtn:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+
+/* errors */
+.err-inline{
+  background:rgba(255,71,87,.1);
+  border:1px solid rgba(255,71,87,.3);
+  border-radius:6px;padding:10px 14px;
+  color:var(--red);font-size:12px;
+  margin-top:8px
+}
+.err-msg{
+  background:rgba(255,71,87,.1);
+  border:1px solid rgba(255,71,87,.3);
+  border-radius:8px;padding:12px 15px;
+  color:var(--red);font-size:12px
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════ HEADER ═══════════════════════ -->
+<div class="header">
+  <div class="logo-wrap">
+    <div class="logo-box">🛡</div>
+    <div>
+      <div class="logo-name">PhishGuard</div>
+      <div class="logo-sub">Email Threat Detection System · v2.0</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="status-pill"><div class="status-dot"></div>SYSTEM ACTIVE</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ API KEY BAR ═══════════════════════ -->
+<div class="api-bar">
+  <span class="api-label">API KEY</span>
+  <input type="password" class="api-input" id="apiKey"
+    placeholder="sk-ant-api03-…" autocomplete="off" spellcheck="false">
+  <span class="api-note">Session-only · never stored</span>
+</div>
+
+<!-- ═══════════════════════ MAIN LAYOUT ═══════════════════════ -->
+<div class="layout">
+
+  <!-- ─── SIDEBAR ─── -->
+  <div class="sidebar">
+
+    <div class="sb-section">
+      <div class="sb-title">Sample Emails</div>
+
+      <div class="ecard" onclick="loadEmail(0)">
+        <div class="ebadge b-phish">Phishing</div>
+        <div class="ecard-title">PayPal Account Suspended</div>
+        <div class="ecard-from">security@paypa1-support.com</div>
+      </div>
+
+      <div class="ecard" onclick="loadEmail(1)">
+        <div class="ebadge b-fraud">Fraud</div>
+        <div class="ecard-title">Urgent Business Proposal</div>
+        <div class="ecard-from">prince.adebayo@yahoo.ng</div>
+      </div>
+
+      <div class="ecard" onclick="loadEmail(2)">
+        <div class="ebadge b-spam">Spam</div>
+        <div class="ecard-title">Congratulations! You Won!</div>
+        <div class="ecard-from">winner@global-lottery-2024.com</div>
+      </div>
+
+      <div class="ecard" onclick="loadEmail(3)">
+        <div class="ebadge b-legit">Legitimate</div>
+        <div class="ecard-title">GitHub 2FA Enabled</div>
+        <div class="ecard-from">noreply@github.com</div>
+      </div>
+
+      <div class="ecard" onclick="loadEmail(4)">
+        <div class="ebadge b-legit">Legitimate</div>
+        <div class="ecard-title">Fall 2025 Enrollment Confirmed</div>
+        <div class="ecard-from">registrar@wmich.edu</div>
+      </div>
+
+      <div class="ecard" onclick="loadEmail(5)">
+        <div class="ebadge b-spear">Spear Phish</div>
+        <div class="ecard-title">IT: Urgent Account Verification</div>
+        <div class="ecard-from">it-support@wmu-helpdesk.net</div>
+      </div>
+    </div>
+
+    <div class="sb-section">
+      <div class="sb-title">Common Red Flags</div>
+      <ul class="rf-list">
+        <li>Urgent or threatening language demanding immediate action</li>
+        <li>Sender domain doesn't match the claimed organization</li>
+        <li>Requests for passwords, SSN, or financial credentials</li>
+        <li>Suspicious or mismatched hyperlinks and URLs</li>
+        <li>Poor grammar, spelling errors, or unnatural phrasing</li>
+        <li>Too-good-to-be-true offers — prizes, refunds, windfalls</li>
+        <li>Unexpected attachments or requests to enable macros</li>
+      </ul>
+    </div>
+
+  </div><!-- /sidebar -->
+
+  <!-- ─── CHAT AREA ─── -->
+  <div class="chat">
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab on" id="tab-email"    onclick="switchTab('email')">📧&nbsp; Paste Email</button>
+      <button class="tab"    id="tab-question" onclick="switchTab('question')">💬&nbsp; Ask Question</button>
+    </div>
+
+    <!-- Messages -->
+    <div class="msgs" id="msgs">
+      <div class="welcome" id="welcome">
+        <div class="welcome-icon">🛡️</div>
+        <h2>PHISHGUARD ACTIVE</h2>
+        <p>Paste a suspicious email for AI-powered threat analysis, or ask anything about phishing, fraud, and staying safe online.</p>
+        <div class="tips">
+          <div class="tip"><span class="tip-arr">›</span><span>Click a sample email in the sidebar to load a realistic example</span></div>
+          <div class="tip"><span class="tip-arr">›</span><span>Paste any real email into the "Paste Email" tab for instant analysis</span></div>
+          <div class="tip"><span class="tip-arr">›</span><span>Switch to "Ask Question" to learn about phishing tactics and defenses</span></div>
+          <div class="tip"><span class="tip-arr">›</span><span>Enter your Anthropic API key in the bar above before sending</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input Area -->
+    <div class="input-area">
+
+      <div class="panel on" id="panel-email">
+        <textarea class="etextarea" id="emailText"
+          placeholder="Paste the full email here — including From / To / Subject lines and the complete body…"></textarea>
+        <div class="btn-row">
+          <button class="sbtn" id="analyzeBtn" onclick="analyzeEmail()">ANALYZE THREAT →</button>
+        </div>
+      </div>
+
+      <div class="panel" id="panel-question">
+        <div class="q-row">
+          <input class="qinput" id="qtext" type="text"
+            placeholder="Ask about phishing tactics, red flags, how to verify emails, security best practices…"
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey)askQuestion()">
+          <button class="sbtn" id="questionBtn" onclick="askQuestion()">SEND →</button>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /chat -->
+
+</div><!-- /layout -->
+
+<script>
+// ════════════════════════════════════════════════════════════
+//  SAMPLE EMAILS
+// ════════════════════════════════════════════════════════════
+const SAMPLES = [
+
+/* 0 — PayPal Phishing */
+`From: security@paypa1-support.com
+To: customer@example.com
+Subject: URGENT: Your PayPal Account Has Been Suspended - Action Required
+Date: Mon, 13 Apr 2026 09:14:22 -0500
+
+Dear Valued Customer,
+
+We have detected SUSPICIOUS ACTIVITY on your PayPal account and have temporarily SUSPENDED access for your protection.
+
+To restore your account IMMEDIATELY you must verify your information within 24 HOURS or your account will be PERMANENTLY CLOSED and all funds will be FROZEN.
+
+Click here to verify now:
+http://paypa1-secure-verify.tk/restore?id=8847263&token=XkR92p
+
+You will need to provide:
+- Full name and date of birth
+- Credit card number, expiration date, and CVV code
+- Social Security Number (last 4 digits)
+- Current PayPal password
+
+Failure to complete verification will result in permanent account termination. Our security team is standing by.
+
+PayPal Security Team
+© PayPal Inc. 2026. All rights reserved.`,
+
+/* 1 — Nigerian Prince Fraud */
+`From: prince.adebayo@yahoo.ng
+To: undisclosed-recipients
+Subject: STRICTLY CONFIDENTIAL BUSINESS PROPOSAL — USD $15,500,000.00
+
+Greetings Dear Friend,
+
+I am Prince Emmanuel Adebayo, son of the late Chief Adebayo of Lagos State, Nigeria. I am contacting you in strict confidence regarding a highly sensitive business transaction that requires your urgent assistance.
+
+Following the sudden death of my father in 2019, a sum of USD $15,500,000.00 (Fifteen Million Five Hundred Thousand United States Dollars) has been trapped in a suspense account with the Central Bank of Nigeria due to restrictive government regulations.
+
+I require a trusted foreign partner to assist in transferring this fund to an overseas account. In return, you will receive 30% of the total sum as commission for your cooperation. A further 10% shall cover expenses incurred during the transfer process.
+
+To proceed, kindly furnish me with the following at your earliest convenience:
+1. Your full name and residential address
+2. Your bank account number and routing details
+3. A copy of a valid government-issued ID (passport or driver's license)
+
+I assure you this transaction is 100% risk-free and perfectly legal. Please treat this matter with the utmost confidentiality — do not discuss with colleagues or family.
+
+Awaiting your urgent response with trust,
+Prince Emmanuel Adebayo
+Tel: +234-803-555-9182`,
+
+/* 2 — Lottery Spam */
+`From: winner@global-lottery-2024.com
+To: lucky.winner@example.com
+Subject: 🎉 CONGRATULATIONS! You have won $850,000 USD — Claim Within 5 Days!
+
+GLOBAL INTERNATIONAL LOTTERY COMMISSION
+OFFICIAL PRIZE WINNING NOTIFICATION — 2026
+
+CONGRATULATIONS!!!
+
+Your email address was selected as the GRAND PRIZE WINNER in our 2026 Annual Global Email Lottery Draw! Your winning reference number is: GTL-2026-UK-4471839-X.
+
+PRIZE AWARDED: $850,000.00 USD
+(Eight Hundred and Fifty Thousand United States Dollars)
+
+To claim your prize, contact our licensed Claims Processing Agent IMMEDIATELY:
+
+Agent: Dr. Richard Owens (Claims Director)
+Email: claims.agent.owens@gmail.com
+WhatsApp / Tel: +44-7700-555-0192
+
+Documents required to release funds:
+• Full legal name and home address
+• Occupation and mobile phone number
+• Refundable processing fee of $299 USD (required to unlock transfer)
+
+IMPORTANT: You must initiate your claim within 5 (FIVE) calendar days or your prize will be automatically forfeited and awarded to an alternate winner. Keep this notification STRICTLY CONFIDENTIAL until funds clear your account.
+
+Yours sincerely,
+Mrs. Patricia Walsh, Executive Secretary
+Global International Lottery Commission
+3rd Floor, 14 Cannon Street, London EC4M 5XH`,
+
+/* 3 — GitHub 2FA Legitimate */
+`From: noreply@github.com
+To: developer@example.com
+Subject: [GitHub] Two-factor authentication has been enabled
+Date: Mon, 13 Apr 2026 14:32:01 +0000
+Message-ID: <20260413143201.123456@mg.github.com>
+
+Hi @devuser123,
+
+Two-factor authentication (2FA) has been successfully enabled on your GitHub account.
+
+What this means for you:
+  • Your account now requires a second verification step at each sign-in
+  • Supported methods: authenticator app (TOTP), hardware security key, or SMS
+  • We strongly recommend saving your recovery codes somewhere safe
+
+If you did NOT enable two-factor authentication, your account may be compromised. Please visit your security settings immediately and change your password.
+
+Manage your security settings:
+https://github.com/settings/security
+
+Need help? Visit our documentation on two-factor authentication:
+https://docs.github.com/en/authentication/securing-your-account-with-two-factor-authentication-2fa
+
+Thanks for keeping your account secure,
+The GitHub Team
+
+---
+You're receiving this email because two-factor authentication was recently enabled on the GitHub account associated with this address. GitHub, Inc. · 88 Colin P Kelly Jr Street · San Francisco, CA 94107`,
+
+/* 4 — WMU Enrollment Legitimate */
+`From: registrar@wmich.edu
+To: z.brown123@wmich.edu
+Subject: Fall 2025 Enrollment Confirmation — Western Michigan University
+Date: Mon, 13 Apr 2026 10:05:44 -0400
+Message-ID: <WMU-REG-20260413-9281734@wmich.edu>
+
+Dear Zelda Brown,
+
+This message confirms your enrollment for the Fall 2025 semester at Western Michigan University.
+
+Student ID:         W12345678
+Enrollment Status:  Full-Time (15 credit hours)
+Academic Level:     Graduate — M.S. Computer Science
+
+Enrolled Courses:
+  CS 5800  Advanced Algorithms            3 cr   MWF 10:00–10:50am   Parkview D-120
+  CS 5840  Machine Learning               3 cr   TR  2:00–3:15pm     Parkview C-210
+  MATH 5200 Linear Algebra               3 cr   MWF 1:00–1:50pm    Rood Hall 3301
+  CS 5910  Research Methods in CS        3 cr   W   5:00–7:30pm     Online (async)
+  CS 5980  Graduate Seminar              3 cr   F   3:00–3:50pm     Parkview B-105
+
+Tuition and fees due: August 1, 2025
+Payment options: wmich.edu/bursar or GoWMU portal under Student Financials.
+
+Questions? Contact the Registrar's Office:
+  Email:  registrar@wmich.edu
+  Phone:  (269) 387-4300
+  Hours:  Mon–Fri 8:00am–5:00pm EST
+
+Go Broncos!
+Office of the University Registrar
+Western Michigan University | Kalamazoo, MI 49008
+registrar.wmich.edu`,
+
+/* 5 — WMU IT Spear Phish */
+`From: it-support@wmu-helpdesk.net
+To: z.brown123@wmich.edu
+Subject: URGENT: WMU Bronco NetID Account Expiring in 48 Hours — Immediate Verification Required
+
+Dear Zelda Brown,
+
+Our security monitoring systems have flagged your Western Michigan University Bronco NetID account (z.brown123@wmich.edu) for mandatory re-verification due to detected inactivity.
+
+Your account is scheduled to be SUSPENDED in 48 HOURS unless you complete the verification process below.
+
+Failure to verify will immediately result in:
+  • Loss of access to Elearning (Blackboard) and all course materials
+  • Suspension of WMU email and GoWMU student portal
+  • Potential complications to your academic record and financial aid
+  • Loss of library database and remote software access
+
+To prevent account suspension, click the secure link below and confirm your credentials:
+
+  http://wmu-account-verify.xyz/bronco/login?uid=z.brown123&dept=CS
+
+You will be asked to enter:
+  — Your Bronco NetID username
+  — Your current NetID password
+  — Your 8-digit Student ID number
+
+This verification link expires in 48 HOURS. Act now to avoid disruption to your studies.
+
+If you believe you received this message in error, reply directly to this email or contact our help desk at it-support@wmu-helpdesk.net.
+
+Regards,
+WMU Information Technology Services
+IT Help Desk — 24/7 Support
+it-support@wmu-helpdesk.net | (269) 387-HELP`,
+
+];
+
+// ════════════════════════════════════════════════════════════
+//  SYSTEM PROMPT
+// ════════════════════════════════════════════════════════════
+const SYSTEM = `You are PhishGuard, an expert email security educator for university students. Your purpose is to help students identify phishing attacks, email fraud, spam, and other email-based threats through clear, detailed, educational analysis.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WHEN ANALYZING AN EMAIL:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You MUST begin your response with a VERDICT line in this EXACT format (no extra whitespace):
+VERDICT:{"type":"PHISHING","score":95,"title":"PayPal Account Suspension Scam"}
+
+VERDICT field definitions:
+• type — exactly one of: PHISHING | FRAUD | SPAM | SUSPICIOUS | LEGITIMATE
+• score — integer 0–100 (threat level: 0 = completely safe, 100 = confirmed attack)
+• title — a short, specific title describing this exact threat (or "Legitimate Email" if clean)
+
+Score guidelines:
+  0–20   → LEGITIMATE  (no significant concerns)
+  21–40  → LOW RISK    (minor oddities, likely safe)
+  41–60  → SUSPICIOUS  (warrants caution, verify sender)
+  61–80  → LIKELY THREAT (significant red flags, do not comply)
+  81–100 → DEFINITE THREAT (clear attack, delete immediately)
+
+After the VERDICT line, structure your analysis exactly as follows:
+
+**THREAT ASSESSMENT**
+2–3 sentences summarizing what this email is, who sent it, and the level of danger.
+
+**RED FLAGS IDENTIFIED**  (omit this section for legitimate emails)
+Use bullet points. For EVERY red flag, quote the specific text from the email as evidence. Example format:
+• Spoofed sender domain — The email claims to be PayPal but originates from "paypa1-support.com" (number 1 replacing letter L)
+• Credential harvesting — Explicitly requests "Credit card number, expiration date, and CVV code" and "Social Security Number"
+• Artificial urgency — Threatens "PERMANENTLY CLOSED and all funds will be FROZEN" within "24 HOURS" to prevent careful thinking
+
+**LEGITIMACY INDICATORS**  (omit this section for threat emails — use instead of RED FLAGS for legitimate emails)
+• Authenticated domain — Sent from "noreply@github.com" which matches GitHub's known mail domain
+• No credential requests — Does not ask for passwords, financial info, or personal data
+
+**WHAT TO DO**
+2–3 specific, actionable steps the recipient should take right now.
+
+**EDUCATIONAL INSIGHT**
+One concise paragraph explaining the social engineering technique used and how students can recognize similar attacks in the future.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WHEN ANSWERING GENERAL SECURITY QUESTIONS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Do NOT include a VERDICT block. Provide conversational, educational answers appropriate for university students who may be new to cybersecurity. Be friendly, clear, and practical. Use real-world examples when helpful.`;
+
+// ════════════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════════════
+let history = [];   // conversation history for the API
+let busy    = false;
+
+// ════════════════════════════════════════════════════════════
+//  TAB SWITCHING
+// ════════════════════════════════════════════════════════════
+function switchTab(t) {
+  ['email','question'].forEach(n => {
+    document.getElementById('tab-'+n).classList.toggle('on', n===t);
+    document.getElementById('panel-'+n).classList.toggle('on', n===t);
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  LOAD SAMPLE EMAIL
+// ════════════════════════════════════════════════════════════
+function loadEmail(i) {
+  document.getElementById('emailText').value = SAMPLES[i];
+  switchTab('email');
+  document.getElementById('emailText').focus();
+}
+
+// ════════════════════════════════════════════════════════════
+//  ANALYZE EMAIL
+// ════════════════════════════════════════════════════════════
+function analyzeEmail() {
+  const raw = document.getElementById('emailText').value.trim();
+  if (!raw) return;
+  const apiMsg  = `Please analyze this email for threats:\n\n\`\`\`\n${raw}\n\`\`\``;
+  const display = '📧 Email submitted for threat analysis';
+  send(apiMsg, display);
+}
+
+// ════════════════════════════════════════════════════════════
+//  ASK QUESTION
+// ════════════════════════════════════════════════════════════
+function askQuestion() {
+  const q = document.getElementById('qtext').value.trim();
+  if (!q) return;
+  document.getElementById('qtext').value = '';
+  send(q, q);
+}
+
+// ════════════════════════════════════════════════════════════
+//  CORE SEND → API → RENDER
+// ════════════════════════════════════════════════════════════
+async function send(apiContent, displayContent) {
+  if (busy) return;
+
+  const key = document.getElementById('apiKey').value.trim();
+  if (!key) { flashError('Please enter your Anthropic API key in the bar above.'); return; }
+
+  // Remove welcome screen on first message
+  const w = document.getElementById('welcome');
+  if (w) w.remove();
+
+  history.push({ role:'user', content: apiContent });
+  appendUserMsg(displayContent);
+
+  const tid = showTyping();
+  busy = true;
+  setBtns(true);
+
+  try {
+    const res = await fetch('/proxy', {
+      method: 'POST',
+      headers: {
+        'Content-Type':       'application/json',
+        'x-api-key':          key,
+        'anthropic-version':  '2023-06-01',
+      },
+      body: JSON.stringify({
+        model:      'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system:     SYSTEM,
+        messages:   history,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error?.message || `HTTP ${res.status}`);
+
+    const text = data.content[0].text;
+    history.push({ role:'assistant', content: text });
+
+    removeTyping(tid);
+    renderAssistant(text);
+
+  } catch(e) {
+    removeTyping(tid);
+    history.pop(); // remove failed user turn
+    appendErrMsg(e.message);
+  } finally {
+    busy = false;
+    setBtns(false);
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  RENDER ASSISTANT RESPONSE
+// ════════════════════════════════════════════════════════════
+function renderAssistant(raw) {
+  const msgs = document.getElementById('msgs');
+
+  // --- parse VERDICT block ---
+  let verdict   = null;
+  let bodyText  = raw;
+  const vm = raw.match(/^VERDICT:\s*(\{[^}]+\})/m);
+  if (vm) {
+    try {
+      verdict  = JSON.parse(vm[1]);
+      bodyText = raw.replace(/^VERDICT:\s*\{[^}]+\}\n?/m, '').trim();
+    } catch(_) {}
+  }
+
+  // --- build HTML ---
+  let html = '';
+
+  if (verdict) {
+    const icons = {PHISHING:'🚨',FRAUD:'⚠️',SPAM:'📧',SUSPICIOUS:'🔍',LEGITIMATE:'✅'};
+    const icon  = icons[verdict.type] || '🔍';
+    const type  = verdict.type || 'UNKNOWN';
+    const title = esc(verdict.title || '');
+
+    html += `<div class="vbanner v-${type}">
+      <span class="v-icon">${icon}</span>
+      <div class="v-info">
+        <div class="v-type">${type}</div>
+        <div class="v-title">${title}</div>
+      </div>
+    </div>`;
+
+    const score = Math.max(0, Math.min(100, parseInt(verdict.score) || 0));
+    let sc = 's-safe';
+    if (score > 80) sc = 's-crit';
+    else if (score > 60) sc = 's-high';
+    else if (score > 40) sc = 's-med';
+    else if (score > 20) sc = 's-low';
+
+    html += `<div class="score-wrap">
+      <div class="score-header">
+        <span>THREAT SCORE</span>
+        <span class="score-num">${score} / 100</span>
+      </div>
+      <div class="score-bar">
+        <div class="score-fill ${sc}" style="width:${score}%"></div>
+      </div>
+    </div>`;
+  }
+
+  html += `<div class="atxt">${fmtAnalysis(bodyText)}</div>`;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'msg a';
+  wrap.innerHTML = `
+    <div class="av">🛡</div>
+    <div class="mc">
+      <div class="mlabel">PHISHGUARD ANALYSIS</div>
+      <div class="bubble">${html}</div>
+    </div>`;
+
+  msgs.appendChild(wrap);
+  scrollBot();
+}
+
+// ════════════════════════════════════════════════════════════
+//  FORMAT ANALYSIS TEXT
+// ════════════════════════════════════════════════════════════
+function fmtAnalysis(raw) {
+  let t = esc(raw);
+
+  // Quoted evidence "…" — must run first, before any HTML is injected,
+  // so the regex cannot accidentally match class="..." attribute values.
+  t = t.replace(/"([^"]{3,150})"/g, '<span class="evidence">&ldquo;$1&rdquo;</span>');
+
+  // Section headers: **ALL CAPS TITLE**
+  t = t.replace(/\*\*(THREAT ASSESSMENT|RED FLAGS IDENTIFIED|LEGITIMACY INDICATORS|WHAT TO DO|EDUCATIONAL INSIGHT)\*\*/g,
+    '<span class="sec-hdr">$1</span>');
+
+  // Remaining **bold**
+  t = t.replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>');
+
+  // *italic*
+  t = t.replace(/\*([^*\n]+)\*/g, '<em>$1</em>');
+
+  // Bullet points lines starting with •
+  t = t.replace(/^•\s+(.+)$/gm,
+    '<div class="bullet"><div class="bullet-bar"></div><div>• $1</div></div>');
+
+  // Lines starting with — (em-dash bullets)
+  t = t.replace(/^—\s+(.+)$/gm,
+    '<div class="bullet"><div class="bullet-bar"></div><div>— $1</div></div>');
+
+  // Newlines to br
+  t = t.replace(/\n/g, '<br>');
+
+  // Clean up double <br> after block elements
+  t = t.replace(/<br>(<div)/g, '$1');
+  t = t.replace(/(\/div>)<br>/g, '$1');
+
+  // Clean up <br> immediately before/after sec-hdr spans only
+  t = t.replace(/<br>(<span class="sec-hdr">)/g, '$1');
+  t = t.replace(/(<span class="sec-hdr">[^<]*<\/span>)<br>/g, '$1');
+
+  return t;
+}
+
+// ════════════════════════════════════════════════════════════
+//  APPEND USER MESSAGE
+// ════════════════════════════════════════════════════════════
+function appendUserMsg(text) {
+  const msgs = document.getElementById('msgs');
+  const el   = document.createElement('div');
+  el.className = 'msg u';
+  el.innerHTML = `
+    <div class="av">👤</div>
+    <div class="mc">
+      <div class="mlabel">YOU</div>
+      <div class="bubble">${esc(text)}</div>
+    </div>`;
+  msgs.appendChild(el);
+  scrollBot();
+}
+
+// ════════════════════════════════════════════════════════════
+//  TYPING INDICATOR
+// ════════════════════════════════════════════════════════════
+function showTyping() {
+  const msgs = document.getElementById('msgs');
+  const id   = 'ty-' + Date.now();
+  const el   = document.createElement('div');
+  el.className = 'typing';
+  el.id        = id;
+  el.innerHTML = `
+    <div class="typing-av">🛡</div>
+    <div class="dots">
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+    </div>`;
+  msgs.appendChild(el);
+  scrollBot();
+  return id;
+}
+
+function removeTyping(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+// ════════════════════════════════════════════════════════════
+//  ERROR HELPERS
+// ════════════════════════════════════════════════════════════
+function appendErrMsg(msg) {
+  const msgs = document.getElementById('msgs');
+  const el   = document.createElement('div');
+  el.className = 'err-msg';
+  el.textContent = `Error: ${msg}`;
+  msgs.appendChild(el);
+  scrollBot();
+}
+
+function flashError(msg) {
+  const area = document.querySelector('.input-area');
+  let ex = area.querySelector('.err-inline');
+  if (ex) ex.remove();
+  const el = document.createElement('div');
+  el.className   = 'err-inline';
+  el.textContent = msg;
+  area.appendChild(el);
+  setTimeout(() => el.remove(), 5000);
+}
+
+// ════════════════════════════════════════════════════════════
+//  UTILITIES
+// ════════════════════════════════════════════════════════════
+function esc(s) {
+  const d = document.createElement('div');
+  d.appendChild(document.createTextNode(String(s)));
+  return d.innerHTML;
+}
+
+function scrollBot() {
+  const el = document.getElementById('msgs');
+  el.scrollTop = el.scrollHeight;
+}
+
+function setBtns(d) {
+  ['analyzeBtn','questionBtn'].forEach(id => {
+    document.getElementById(id).disabled = d;
+  });
+}
+
+</script>
+</body>
+</html>
